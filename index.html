@@ -18,6 +18,7 @@
     --radius:10px;
   }
   *{box-sizing:border-box;}
+  html, body{overflow-x:hidden;max-width:100%;}
   body{margin:0;background:var(--paper);color:var(--ink);
     font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased;}
   .wrap{max-width:960px;margin:0 auto;padding:26px 16px 90px;}
@@ -67,7 +68,7 @@
   .card .loc{font-size:12px;color:var(--ink-soft);margin-top:2px;}
   .tag{display:inline-block;font-size:11px;color:var(--celadon-deep);background:var(--chip);
     padding:2px 8px;border-radius:999px;margin-right:6px;font-weight:700;}
-  .actions{display:flex;gap:6px;flex-shrink:0;}
+  .actions{display:flex;gap:6px;flex-wrap:wrap;}
   .go{text-decoration:none;background:var(--celadon-deep);color:#fff;font-size:13px;font-weight:700;
     padding:9px 14px;border-radius:8px;white-space:nowrap;}
   .go:hover{background:var(--celadon);}
@@ -93,6 +94,29 @@
     background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:999px;
     font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s;}
   .toast.show{opacity:1;}
+  @media (max-width: 640px){
+    .wrap{padding:16px 10px 80px;}
+    h1{font-size:21px;}
+    .sub{font-size:12.5px;}
+    .stat{padding:6px 10px;font-size:12px;}
+
+    .row{flex-direction:column;}
+    .row > *{min-width:0;width:100%;}
+    .searchRow{flex-direction:column;}
+    .searchRow input, .searchRow select{min-width:0;width:100%;}
+
+    .panel{padding:12px;}
+    .card{padding:10px 12px;}
+    .card .name{font-size:14px;}
+
+    .actions{width:100%;justify-content:flex-start;}
+    .go, .go2, .edit, .del{
+      flex:1 1 auto;
+      text-align:center;
+      font-size:12.5px;
+      padding:8px 10px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -121,7 +145,8 @@
     <h2>새 가게 추가</h2>
     <div class="row" style="margin-bottom:8px;">
       <select id="addSido"></select>
-      <input type="text" id="addGugun" placeholder="구/군 (예: 강남, 속초)">
+      <input type="text" id="addGugun" list="addGugunList" placeholder="구/군 (예: 강남, 속초)">
+      <datalist id="addGugunList"></datalist>
       <input type="text" id="addName" placeholder="상호명 (예: 을밀대 평양냉면)">
       <button class="primary" id="addBtn" style="flex:0 0 auto;">추가하기</button>
     </div>
@@ -239,6 +264,7 @@ function populateGugunFilter(){
 }
 
 function populateAddSido(){
+  const cur = addSido.value;
   addSido.innerHTML = '';
   uniqueSidoList().concat(['서울특별시','경기도','강원도','인천광역시','기타'].filter(s=>!uniqueSidoList().includes(s)))
     .forEach(s=>{
@@ -246,6 +272,21 @@ function populateAddSido(){
       o.value = s; o.textContent = s;
       addSido.appendChild(o);
     });
+  addSido.value = cur && [...addSido.options].some(o=>o.value===cur) ? cur : addSido.value;
+  populateAddGugunList();
+}
+
+const addGugunList = document.getElementById('addGugunList');
+function populateAddGugunList(){
+  const sido = addSido.value;
+  addGugunList.innerHTML = '';
+  const counts = {};
+  DATA.filter(e=> !sido || e.sido===sido).forEach(e=>{ counts[e.gugun] = (counts[e.gugun]||0)+1; });
+  Object.keys(counts).sort((a,b)=> counts[b]-counts[a] || a.localeCompare(b,'ko')).forEach(g=>{
+    const o = document.createElement('option');
+    o.value = g;
+    addGugunList.appendChild(o);
+  });
 }
 
 let filtered = [];
@@ -397,6 +438,7 @@ addBtn.addEventListener('click', async ()=>{
 });
 
 sidoSelect.addEventListener('change', ()=>{ populateGugunFilter(); applyFilter(); });
+addSido.addEventListener('change', populateAddGugunList);
 gugunSelect.addEventListener('change', applyFilter);
 nameSearch.addEventListener('input', applyFilter);
 moreBtn.addEventListener('click', renderMore);
