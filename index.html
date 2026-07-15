@@ -42,13 +42,14 @@
   .autocompleteWrap{position:relative;flex:1;min-width:120px;}
   .autocompleteWrap input{width:100%;}
   .suggestList{
-    display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;
-    background:var(--card);border:1px solid var(--line);border-radius:8px;
-    max-height:220px;overflow-y:auto;z-index:50;
-    box-shadow:0 6px 16px rgba(0,0,0,0.10);
+    display:none;margin-top:6px;
+    background:var(--card);border:1.5px solid var(--celadon);border-radius:8px;
+    max-height:180px;overflow-y:auto;
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
   }
   .suggestList.show{display:block;}
-  .suggestItem{padding:10px 12px;font-size:14px;cursor:pointer;}
+  .suggestItem{padding:11px 14px;font-size:14px;cursor:pointer;border-bottom:1px solid var(--line);}
+  .suggestItem:last-child{border-bottom:none;}
   .suggestItem:hover, .suggestItem.active{background:var(--chip);}
   input[type=text], select{
     padding:10px 12px;border-radius:8px;border:1.5px solid var(--line);
@@ -324,7 +325,10 @@ function renderGugunSuggest(){
   addGugunSuggest.classList.add('show');
 }
 
-addGugun.addEventListener('focus', ()=>{ renderGugunSuggest(); });
+addGugun.addEventListener('focus', ()=>{
+  renderGugunSuggest();
+  setTimeout(()=> addGugun.scrollIntoView({block:'center', behavior:'smooth'}), 250);
+});
 addGugun.addEventListener('click', ()=>{ renderGugunSuggest(); });
 addGugun.addEventListener('input', renderGugunSuggest);
 addGugun.addEventListener('blur', ()=>{ setTimeout(()=> addGugunSuggest.classList.remove('show'), 200); });
