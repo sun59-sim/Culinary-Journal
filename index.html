@@ -161,7 +161,7 @@
 </head>
 <body>
 <div class="versionBanner">
-  🔴 버전 v13 — 이 빨간 띠가 보이면 최신 파일입니다 (2026-07-15)
+  🔴 버전 v14 — 이 빨간 띠가 보이면 최신 파일입니다 (2026-07-15)
 </div>
 <div class="wrap">
 
@@ -173,6 +173,7 @@
       <div class="stat"><b id="statTotal">0</b>곳 등록</div>
       <div class="stat"><b id="statSido">0</b>개 시/도</div>
     </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--ink-soft);" id="storageDebug"></div>
   </header>
 
   <div class="panel">
@@ -214,7 +215,7 @@
     ※ 이 버전은 <b>이 브라우저에만</b> 저장돼요. 다른 기기나 다른 브라우저(예: 크롬↔사파리)로 열면 데이터가 안 보여요. 브라우저 방문기록/캐시를 지우면 데이터도 함께 사라질 수 있으니 가끔 파일로 백업해두는 걸 추천해요.
   </footer>
   <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--ink-soft);opacity:0.6;">
-    버전: v13-2026-07-15-불러오기버그수정-깃허브용
+    버전: v14-2026-07-15-저장진단표시-깃허브용
   </div>
 </div>
 
@@ -339,6 +340,24 @@ async function loadData(){
   await saveData();
 }
 
+function updateStorageDebug(label){
+  const el = document.getElementById('storageDebug');
+  if(!el) return;
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const now = new Date().toLocaleTimeString('ko-KR');
+    if(!raw){
+      el.textContent = `[진단] ${label} · ${now} · localStorage: 비어있음(null)`;
+    }else{
+      let count = '파싱실패';
+      try{ count = JSON.parse(raw).length + '개'; }catch(e){}
+      el.textContent = `[진단] ${label} · ${now} · localStorage 크기: ${raw.length}자 · 항목: ${count}`;
+    }
+  }catch(e){
+    el.textContent = `[진단] ${label} · localStorage 접근 자체가 안 됨: ${e.message}`;
+  }
+}
+
 async function saveData(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
@@ -347,10 +366,12 @@ async function saveData(){
     if(!check || JSON.parse(check).length !== DATA.length){
       throw new Error('저장 확인 실패');
     }
+    updateStorageDebug('저장 직후');
     return true;
   }catch(e){
     console.error('저장 실패', e);
     toast('⚠️ 저장 실패! 브라우저의 "사이트 데이터 자동 삭제" 설정을 확인해주세요');
+    updateStorageDebug('저장 실패');
     return false;
   }
 }
@@ -638,6 +659,7 @@ function checkStorageWorks(){
 }
 
 (async function init(){
+  updateStorageDebug('페이지 열림(로드 전)');
   if(!checkStorageWorks()){
     const banner = document.getElementById('debugBanner');
     if(banner){
@@ -646,6 +668,7 @@ function checkStorageWorks(){
     }
   }
   await loadData();
+  updateStorageDebug('데이터 불러오기 완료');
   document.getElementById('statTotal').textContent = DATA.length;
   document.getElementById('statSido').textContent = uniqueSidoList().length;
   populateSidoFilter();
