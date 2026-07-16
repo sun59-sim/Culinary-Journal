@@ -123,6 +123,11 @@
     .searchRow{flex-direction:column;}
     .searchRow input, .searchRow select{min-width:0;width:100%;}
 
+    input[type=text], select{
+      font-size:16px;
+      padding:13px 12px;
+    }
+
     .panel{padding:12px;}
 
     .card{
@@ -156,14 +161,14 @@
 </head>
 <body>
 <div class="versionBanner">
-  🔴 버전 v9 — 이 빨간 띠가 보이면 최신 파일입니다 (2026-07-15)
+  🔴 버전 v10 — 이 빨간 띠가 보이면 최신 파일입니다 (2026-07-15)
 </div>
 <div class="wrap">
 
   <header class="top">
     <div class="eyebrow">맛집 수첩 · 네이버 지도 바로가기</div>
     <h1>내 맛집 리스트</h1>
-    <div class="sub">시/도 · 구/군으로 찾거나 상호명으로 검색하세요. 추가/삭제한 내용은 이 브라우저에 자동 저장돼요. (깃허브/외부 호스팅용 버전)</div>
+    <div class="sub">시/도 · 구/군으로 찾거나 상호명으로 검색하세요. 추가/삭제한 내용은 자동 저장돼요.</div>
     <div class="stats">
       <div class="stat"><b id="statTotal">0</b>곳 등록</div>
       <div class="stat"><b id="statSido">0</b>개 시/도</div>
@@ -183,21 +188,9 @@
     <h2>새 가게 추가</h2>
     <div class="row" style="margin-bottom:8px;">
       <select id="addSido"></select>
-      <div class="autocompleteWrap">
-        <input type="text" id="addGugun" placeholder="구/군 (예: 강남, 속초)" autocomplete="off">
-        <div class="suggestList" id="addGugunSuggest"></div>
-      </div>
+      <select id="addGugun"></select>
       <input type="text" id="addName" placeholder="상호명 (예: 을밀대 평양냉면)">
       <button class="primary" id="addBtn" style="flex:0 0 auto;">추가하기</button>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>백업 / 복원 (이 브라우저에만 저장되니 가끔 백업해두세요)</h2>
-    <div class="row" style="margin-bottom:0;gap:8px;">
-      <button class="ghost" id="backupBtn" style="flex:0 0 auto;">📥 백업 파일 다운로드</button>
-      <label class="ghost" for="restoreInput" style="flex:0 0 auto;cursor:pointer;display:inline-flex;align-items:center;">📤 백업 파일 불러오기</label>
-      <input type="file" id="restoreInput" accept="application/json" style="display:none;">
     </div>
   </div>
 
@@ -208,11 +201,10 @@
   <footer class="note">
     <b>"네이버 검색"</b> 버튼: 상호명에 메뉴가 섞여있어도 "조건에 맞는 업체가 없습니다" 오류 없이 관련 정보를 보여줘요. 지도 카드가 뜨면 그걸 눌러 들어가세요.<br>
     <b>"지도앱 검색"</b> 버튼: 네이버 지도 안에서 바로 검색해요. 이름이 정확히 맞을 때는 이게 더 빠르지만, 메뉴명까지 섞여있으면 결과가 안 나올 수 있어요.<br>
-    지역 구분은 자동으로 추출한 것이라 100% 정확하지 않을 수 있어요. 틀린 항목은 삭제 후 다시 추가해서 고쳐주세요.<br>
-    ※ 이 버전은 <b>이 브라우저에만</b> 저장돼요. 다른 기기나 다른 브라우저(예: 크롬↔사파리)로 열면 데이터가 안 보여요. 브라우저 방문기록/캐시를 지우면 데이터도 함께 사라질 수 있으니 가끔 파일로 백업해두는 걸 추천해요.
+    지역 구분은 자동으로 추출한 것이라 100% 정확하지 않을 수 있어요. 틀린 항목은 삭제 후 다시 추가해서 고쳐주세요.
   </footer>
   <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--ink-soft);opacity:0.6;">
-    버전: v9-2026-07-15-구군중복해결-깃허브용
+    버전: v10-2026-07-15-구군선택드롭다운으로변경
   </div>
 </div>
 
@@ -302,24 +294,23 @@ function normalizeAllData(list){
 
 async function loadData(){
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      DATA = JSON.parse(raw);
+    const res = await window.storage.get(STORAGE_KEY, false);
+    if(res && res.value){
+      DATA = JSON.parse(res.value);
       const changed = normalizeAllData(DATA);
       if(changed > 0) await saveData();
       return;
     }
-  }catch(e){ /* 저장된 값 없음 또는 오류 */ }
+  }catch(e){ /* key not found yet */ }
   DATA = SEED;
   await saveData();
 }
 
 async function saveData(){
   try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+    await window.storage.set(STORAGE_KEY, JSON.stringify(DATA), false);
   }catch(e){
     console.error('저장 실패', e);
-    toast('저장에 실패했어요 (브라우저 저장공간 문제일 수 있어요)');
   }
 }
 
@@ -367,58 +358,34 @@ function populateAddSido(){
       addSido.appendChild(o);
     });
   addSido.value = cur && [...addSido.options].some(o=>o.value===cur) ? cur : addSido.value;
-  updateGugunCandidates();
+  populateAddGugun();
 }
 
-// 구/군 자동완성: 네이티브 <datalist>는 iOS Safari에서 잘 안 뜨는 경우가 많아
-// 직접 만든 드롭다운으로 구현 (모든 기기에서 동일하게 작동)
-const addGugunSuggest = document.getElementById('addGugunSuggest');
-let gugunCandidates = [];
-
-function updateGugunCandidates(){
+// 구/군 선택: 네이티브 <select>를 사용 — 휴대폰 OS의 기본 선택 화면이 떠서
+// 손가락으로 누르기 훨씬 쉬움 (이전의 입력+자동완성 목록 방식보다 안정적)
+function populateAddGugun(){
   const sido = addSido.value;
+  const cur = addGugun.value;
   // 실제 등록된 구/군(사용빈도순) + 행정구역상 존재하는 전체 구/군을 합쳐서 후보로 제공
   const counts = {};
   DATA.filter(e=> !sido || e.sido===sido).forEach(e=>{ counts[e.gugun] = (counts[e.gugun]||0)+1; });
   const used = Object.keys(counts).sort((a,b)=> counts[b]-counts[a] || a.localeCompare(b,'ko'));
   const official = (OFFICIAL_DISTRICTS[sido] || []).slice().sort((a,b)=>a.localeCompare(b,'ko'));
   const seen = new Set();
-  gugunCandidates = [];
-  used.forEach(g=>{ if(!seen.has(g)){ seen.add(g); gugunCandidates.push(g); } });
-  official.forEach(g=>{ if(!seen.has(g)){ seen.add(g); gugunCandidates.push(g); } });
+  const candidates = [];
+  used.forEach(g=>{ if(!seen.has(g)){ seen.add(g); candidates.push(g); } });
+  official.forEach(g=>{ if(!seen.has(g)){ seen.add(g); candidates.push(g); } });
+
+  addGugun.innerHTML = '';
+  candidates.forEach(g=>{
+    const o = document.createElement('option');
+    o.value = g; o.textContent = g;
+    addGugun.appendChild(o);
+  });
+  addGugun.value = cur && [...addGugun.options].some(o=>o.value===cur) ? cur : (candidates[0] || '');
 }
 
-function renderGugunSuggest(){
-  const q = addGugun.value.trim();
-  const list = (q ? gugunCandidates.filter(g=>g.includes(q)) : gugunCandidates).slice(0,30);
-  if(list.length===0){
-    addGugunSuggest.classList.remove('show');
-    addGugunSuggest.innerHTML = '';
-    return;
-  }
-  addGugunSuggest.innerHTML = list.map(g=>`<div class="suggestItem" data-val="${g}">${g}</div>`).join('');
-  addGugunSuggest.classList.add('show');
-}
-
-addGugun.addEventListener('focus', ()=>{
-  renderGugunSuggest();
-  setTimeout(()=> addGugun.scrollIntoView({block:'center', behavior:'smooth'}), 250);
-});
-addGugun.addEventListener('click', ()=>{ renderGugunSuggest(); });
-addGugun.addEventListener('input', renderGugunSuggest);
-addGugun.addEventListener('blur', ()=>{ setTimeout(()=> addGugunSuggest.classList.remove('show'), 200); });
-addGugunSuggest.addEventListener('mousedown', (ev)=>{
-  const item = ev.target.closest('.suggestItem');
-  if(!item) return;
-  addGugun.value = item.dataset.val;
-  addGugunSuggest.classList.remove('show');
-});
-addGugunSuggest.addEventListener('touchstart', (ev)=>{
-  const item = ev.target.closest('.suggestItem');
-  if(!item) return;
-  addGugun.value = item.dataset.val;
-  addGugunSuggest.classList.remove('show');
-}, {passive:true});
+addSido.addEventListener('change', populateAddGugun);
 
 let filtered = [];
 let shown = 0;
@@ -569,54 +536,9 @@ addBtn.addEventListener('click', async ()=>{
 });
 
 sidoSelect.addEventListener('change', ()=>{ populateGugunFilter(); applyFilter(); });
-addSido.addEventListener('change', updateGugunCandidates);
 gugunSelect.addEventListener('change', applyFilter);
 nameSearch.addEventListener('input', applyFilter);
 moreBtn.addEventListener('click', renderMore);
-
-const backupBtn = document.getElementById('backupBtn');
-const restoreInput = document.getElementById('restoreInput');
-
-backupBtn.addEventListener('click', ()=>{
-  const blob = new Blob([JSON.stringify(DATA, null, 1)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const d = new Date();
-  const stamp = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
-  a.href = url;
-  a.download = `맛집수첩_백업_${stamp}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  toast('백업 파일을 다운로드했어요');
-});
-
-restoreInput.addEventListener('change', (ev)=>{
-  const file = ev.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = async (e)=>{
-    try{
-      const parsed = JSON.parse(e.target.result);
-      if(!Array.isArray(parsed)) throw new Error('형식이 올바르지 않아요');
-      if(!confirm(`백업 파일에 ${parsed.length}곳이 있어요. 지금 목록(${DATA.length}곳)을 이걸로 덮어쓸까요?`)) return;
-      DATA = parsed;
-      await saveData();
-      populateSidoFilter();
-      populateGugunFilter();
-      populateAddSido();
-      applyFilter();
-      document.getElementById('statTotal').textContent = DATA.length;
-      document.getElementById('statSido').textContent = uniqueSidoList().length;
-      toast('백업을 불러왔어요');
-    }catch(err){
-      toast('파일을 읽을 수 없어요. 이 앱에서 받은 백업 파일인지 확인해주세요');
-    }
-    restoreInput.value = '';
-  };
-  reader.readAsText(file);
-});
 
 (async function init(){
   await loadData();
