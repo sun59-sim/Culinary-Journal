@@ -164,7 +164,7 @@
 </head>
 <body>
 <div class="versionBanner">
-  🔴 버전 v15 — 이 빨간 띠가 보이면 최신 파일입니다 (2026-07-15)
+  🔴 버전 v16 — 이 빨간 띠가 보이면 최신 파일입니다 (2026-07-15)
 </div>
 <div class="wrap">
 
@@ -218,7 +218,7 @@
     ※ 이 버전은 <b>이 브라우저에만</b> 저장돼요. 다른 기기나 다른 브라우저(예: 크롬↔사파리)로 열면 데이터가 안 보여요. 브라우저 방문기록/캐시를 지우면 데이터도 함께 사라질 수 있으니 가끔 파일로 백업해두는 걸 추천해요.
   </footer>
   <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--ink-soft);opacity:0.6;">
-    버전: v15-2026-07-15-캐시방지메타추가-깃허브용
+    버전: v16-2026-07-16-필터전체행정구역표시-깃허브용
   </div>
 </div>
 
@@ -389,11 +389,17 @@ function uniqueSidoList(){
 function populateSidoFilter(){
   const cur = sidoSelect.value;
   sidoSelect.innerHTML = '<option value="">전체 시/도</option>';
-  uniqueSidoList().forEach(s=>{
+  // 데이터가 없는 시/도도 항상 보이도록 전체 17개 고정 표시
+  SIDO_ORDER.filter(s=>s!=='기타').forEach(s=>{
     const o = document.createElement('option');
     o.value = s; o.textContent = s;
     sidoSelect.appendChild(o);
   });
+  if(DATA.some(e=>e.sido==='기타')){
+    const o = document.createElement('option');
+    o.value = '기타'; o.textContent = '기타';
+    sidoSelect.appendChild(o);
+  }
   sidoSelect.value = cur && [...sidoSelect.options].some(o=>o.value===cur) ? cur : '';
 }
 
@@ -405,9 +411,17 @@ function populateGugunFilter(){
   gugunSelect.disabled = false;
   const counts = {};
   DATA.filter(e=>e.sido===sido).forEach(e=>{ counts[e.gugun] = (counts[e.gugun]||0)+1; });
-  Object.keys(counts).sort((a,b)=> counts[b]-counts[a] || a.localeCompare(b,'ko')).forEach(g=>{
+  // 실제 등록된 구/군 + 행정구역상 존재하는 전체 구/군을 합쳐서 표시 (등록 0곳이어도 표시)
+  const official = OFFICIAL_DISTRICTS[sido] || [];
+  const allDistricts = new Set([...Object.keys(counts), ...official]);
+  [...allDistricts].sort((a,b)=>{
+    const ca = counts[a]||0, cb = counts[b]||0;
+    if(ca !== cb) return cb - ca; // 등록된 곳이 있는 구/군을 먼저
+    return a.localeCompare(b,'ko');
+  }).forEach(g=>{
     const o = document.createElement('option');
-    o.value = g; o.textContent = g + ' (' + counts[g] + ')';
+    const c = counts[g]||0;
+    o.value = g; o.textContent = g + ' (' + c + ')';
     gugunSelect.appendChild(o);
   });
   gugunSelect.value = cur && [...gugunSelect.options].some(o=>o.value===cur) ? cur : '';
