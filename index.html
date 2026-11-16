@@ -164,7 +164,7 @@
 </head>
 <body>
 <div class="versionBanner">
-  🔴 버전 v16 — 이 빨간 띠가 보이면 최신 파일입니다 (2026-07-15)
+  🔴 버전 v17 — 이 빨간 띠가 보이면 최신 파일입니다 (2026-11-16)
 </div>
 <div class="wrap">
 
@@ -218,7 +218,7 @@
     ※ 이 버전은 <b>이 브라우저에만</b> 저장돼요. 다른 기기나 다른 브라우저(예: 크롬↔사파리)로 열면 데이터가 안 보여요. 브라우저 방문기록/캐시를 지우면 데이터도 함께 사라질 수 있으니 가끔 파일로 백업해두는 걸 추천해요.
   </footer>
   <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--ink-soft);opacity:0.6;">
-    버전: v16-2026-07-16-필터전체행정구역표시-깃허브용
+    버전: v17-2026-11-16-뒤로가기지역유지-깃허브용
   </div>
 </div>
 
@@ -614,10 +614,44 @@ addBtn.addEventListener('click', async ()=>{
   if(ok) toast('추가했어요');
 });
 
-sidoSelect.addEventListener('change', ()=>{ populateGugunFilter(); applyFilter(); });
-gugunSelect.addEventListener('change', applyFilter);
-nameSearch.addEventListener('input', applyFilter);
-moreBtn.addEventListener('click', renderMore);
+// ===== 화면 상태(지역/검색어/더보기/스크롤) 저장·복원 =====
+const VIEW_KEY = 'matjip-view-v1';
+function saveView(){
+  try{
+    localStorage.setItem(VIEW_KEY, JSON.stringify({
+      sido: sidoSelect.value, gugun: gugunSelect.value, q: nameSearch.value,
+      shown: shown, y: window.scrollY || document.documentElement.scrollTop || 0
+    }));
+  }catch(err){}
+}
+function restoreView(){
+  let v = null;
+  try{ v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null'); }catch(err){}
+  if(!v) return false;
+  if(v.sido && [...sidoSelect.options].some(o=>o.value===v.sido)){
+    sidoSelect.value = v.sido;
+    populateGugunFilter();
+    if(v.gugun && [...gugunSelect.options].some(o=>o.value===v.gugun)) gugunSelect.value = v.gugun;
+  }
+  nameSearch.value = v.q || '';
+  applyFilter();
+  while(shown < (v.shown||0) && shown < filtered.length) renderMore();
+  const y = v.y || 0;
+  [0,150,500].forEach(t=>setTimeout(()=>window.scrollTo(0,y), t));
+  return true;
+}
+try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(err){}
+
+sidoSelect.addEventListener('change', ()=>{ populateGugunFilter(); applyFilter(); saveView(); });
+gugunSelect.addEventListener('change', ()=>{ applyFilter(); saveView(); });
+nameSearch.addEventListener('input', ()=>{ applyFilter(); saveView(); });
+moreBtn.addEventListener('click', ()=>{ renderMore(); saveView(); });
+listEl.addEventListener('click', (ev)=>{ if(ev.target.closest && ev.target.closest('a.go, a.go2')) saveView(); });
+let scrollTimer = null;
+window.addEventListener('scroll', ()=>{ clearTimeout(scrollTimer); scrollTimer = setTimeout(saveView, 200); }, {passive:true});
+window.addEventListener('pagehide', saveView);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') saveView(); });
+window.addEventListener('pageshow', (ev)=>{ if(ev.persisted) restoreView(); });
 
 const backupBtn = document.getElementById('backupBtn');
 const restoreInput = document.getElementById('restoreInput');
@@ -691,7 +725,7 @@ function checkStorageWorks(){
   populateSidoFilter();
   populateGugunFilter();
   populateAddSido();
-  applyFilter();
+  if(!restoreView()) applyFilter();
 })();
 </script>
 </body>
